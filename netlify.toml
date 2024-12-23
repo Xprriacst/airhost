@@ -21,5 +21,9 @@
   to = "/.netlify/functions/:splat"
   status = 200
 
-[functions.receive-message]
-  included_files = ["src/services/supabase/**"]
+[dev]
+  command = "npm run dev"
+  targetPort = 5173
+  port = 8888
+  publish = "dist"
+  autoLaunch = true
