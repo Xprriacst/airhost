@@ -20,3 +20,6 @@
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
+
+[functions.receive-message]
+  included_files = ["src/services/supabase/**"]
