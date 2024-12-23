@@ -1,22 +1,28 @@
-import { whatsappApi } from './api';
+import { messageApi } from './api/messages';
+import { handleIncomingMessage } from './handlers/messageHandler';
 import type { Message } from '../../types';
+import type { WebhookPayload } from './types';
 
 export const whatsappService = {
-  async sendMessage(phoneNumber: string, message: Message) {
+  async sendMessage(phoneNumber: string, message: Message): Promise<boolean> {
     try {
-      return await whatsappApi.sendMessage(phoneNumber, message);
+      await messageApi.sendText({
+        to: phoneNumber,
+        text: message.text
+      });
+      return true;
     } catch (error) {
       console.error('Failed to send WhatsApp message:', error);
       return false;
     }
   },
 
-  async setupWebhook() {
-    const webhookUrl = `${window.location.origin}/.netlify/functions/whatsapp-webhook`;
+  async handleIncomingMessage(payload: WebhookPayload): Promise<boolean> {
     try {
-      return await whatsappApi.setupWebhook(webhookUrl);
+      await handleIncomingMessage(payload);
+      return true;
     } catch (error) {
-      console.error('Failed to setup webhook:', error);
+      console.error('Failed to handle incoming message:', error);
       return false;
     }
   }
