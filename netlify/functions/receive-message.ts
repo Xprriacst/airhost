@@ -1,7 +1,8 @@
 import { Handler } from '@netlify/functions';
 import { z } from 'zod';
-import { propertyService } from '../../src/services/airtable/propertyService';
-import { conversationService } from '../../src/services/conversationService';
+import { propertyService } from '../../src/services/supabase/propertyService';
+import { conversationService } from '../../src/services/supabase/conversationService';
+import { whatsappService } from '../../src/services/whatsapp/service';
 
 const messageSchema = z.object({
   propertyId: z.string().min(1, 'Property ID is required'),
@@ -9,7 +10,7 @@ const messageSchema = z.object({
   guestEmail: z.string().email('A valid email is required'),
   message: z.string().min(1, 'Message cannot be empty'),
   platform: z.enum(['whatsapp', 'sms', 'email']).default('whatsapp'),
-  timestamp: z.string().optional(),
+  timestamp: z.string().datetime().optional(),
   checkInDate: z.string().optional(),
   checkOutDate: z.string().optional(),
 });
@@ -28,9 +29,7 @@ export const handler: Handler = async (event) => {
     const data = messageSchema.parse(body);
 
     // Recherche de la propriété
-    const properties = await propertyService.getProperties();
-    const property = properties.find((p) => p.id === data.propertyId);
-
+    const property = await propertyService.getPropertyById(data.propertyId);
     if (!property) {
       console.error('❌ Property not found for ID:', data.propertyId);
       return {
@@ -53,7 +52,6 @@ export const handler: Handler = async (event) => {
       await conversationService.addMessage(existingConversation.id, {
         text: data.message,
         isUser: false,
-        timestamp: new Date(data.timestamp || Date.now()),
         sender: data.guestName
       });
       conversationId = existingConversation.id;
@@ -61,22 +59,36 @@ export const handler: Handler = async (event) => {
       // Créer une nouvelle conversation
       console.log('⚠️ No existing conversation found. Creating new one...');
       const newConversation = await conversationService.createConversation({
-        Properties: [data.propertyId],
-        'Guest Name': data.guestName,
-        'Guest Email': data.guestEmail,
-        Status: 'Active',
-        Platform: data.platform,
-        'Check-in Date': data.checkInDate,
-        'Check-out Date': data.checkOutDate,
-        Messages: JSON.stringify([{
-          id: Date.now().toString(),
-          text: data.message,
-          isUser: false,
-          timestamp: new Date(data.timestamp || Date.now()),
-          sender: data.guestName
-        }])
+        property_id: data.propertyId,
+        guest_name: data.guestName,
+        guest_email: data.guestEmail,
+        status: 'active',
+        platform: data.platform,
+        check_in_date: data.checkInDate,
+        check_out_date: data.checkOutDate
       });
+      
+      if (!newConversation) {
+        throw new Error('Failed to create conversation');
+      }
+
+      await conversationService.addMessage(newConversation.id, {
+        text: data.message,
+        isUser: false,
+        sender: data.guestName
+      });
+
       conversationId = newConversation.id;
+    }
+
+    // Si la plateforme est WhatsApp, envoyer via WhatsApp
+    if (data.platform === 'whatsapp') {
+      await whatsappService.handleIncomingMessage({
+        messageId: Date.now().toString(),
+        from: data.guestEmail, // Utiliser l'email comme identifiant temporaire
+        text: data.message,
+        timestamp: Date.now()
+      });
     }
 
     return {
