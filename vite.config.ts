@@ -9,15 +9,24 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src')
     }
   },
+  server: {
+    hmr: {
+      overlay: true
+    }
+  },
   build: {
-    outDir: 'dist',
+    sourcemap: true,
     rollupOptions: {
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
-          ui: ['lucide-react']
+          ui: ['lucide-react'],
+          supabase: ['@supabase/supabase-js']
         }
       }
     }
+  },
+  optimizeDeps: {
+    include: ['@supabase/supabase-js']
   }
 });
