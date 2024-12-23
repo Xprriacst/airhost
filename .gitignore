@@ -1,4 +1,6 @@
+
 # Fichiers à ignorer
+.env.production
 
 .env
 node_modules/
